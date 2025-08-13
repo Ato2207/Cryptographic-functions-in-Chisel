@@ -1,0 +1,6 @@
+[debug] [zinc] IncrementalCompile -----------
+[debug] IncrementalCompile.incrementalCompile
+[debug] previous = Stamps for: 53 products, 9 sources, 3 libraries
+[debug] current source = Set(${BASE}/src/main/scala/heap/Swapper.scala, ${BASE}/src/main/scala/heap/Heapifier.scala, ${BASE}/src/main/scala/heap/HeapControl.scala, ${BASE}/src/main/scala/heap/Heap.scala, ${BASE}/src/main/scala/heap/package.scala, ${BASE}/src/main/scala/heap/HeapMemory.scala, ${BASE}/src/main/scala/heap/Fetcher.scala, ${BASE}/src/main/scala/heap/MaxFinder.scala, ${BASE}/src/main/scala/Mux5.scala)
+[debug] > initialChanges = InitialChanges(Changes(added = Set(), removed = Set(), changed = Set(), unmodified = ...),Set(),Set(),API Changes: Set())
+[debug] No changes

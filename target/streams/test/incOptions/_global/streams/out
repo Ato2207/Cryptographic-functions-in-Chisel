@@ -1,0 +1,8 @@
+[debug] Created transactional ClassFileManager with tempDir = D:\Scoala de vara\Chisel\chisel-lab-master\lab4\target\scala-2.13\test-classes.bak
+[debug] About to delete class files:
+[debug] 	Mux5Test.class
+[debug] We backup class files:
+[debug] 	Mux5Test.class
+[debug] Registering generated classes:
+[debug] 	Mux5Test.class
+[debug] Removing the temporary directory used for backing up class files: D:\Scoala de vara\Chisel\chisel-lab-master\lab4\target\scala-2.13\test-classes.bak

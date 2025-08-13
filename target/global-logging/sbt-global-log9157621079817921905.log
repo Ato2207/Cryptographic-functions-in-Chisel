@@ -1,0 +1,38 @@
+[debug] > Exec(test, None, None)
+[debug] Evaluating tasks: Test / test
+[debug] Running task... Cancel: Signal, check cycles: false, forcegc: true
+[info] compiling 1 Scala source to D:\Scoala de vara\Chisel\chisel-lab-master\lab4\target\scala-2.13\test-classes ...
+[info] done compiling
+[info] Mux5Test:
+[info] Mux5
+[info] - should pass *** FAILED ***
+[info]   java.util.NoSuchElementException: None.get
+[info]   at scala.None$.get(Option.scala:627)
+[info]   at scala.None$.get(Option.scala:626)
+[info]   at chisel3.Data.litValue(Data.scala:756)
+[info]   at chiseltest.package$testableUInt.expect(package.scala:63)
+[info]   at Mux5Test.$anonfun$new$3(Mux5Test.scala:16)
+[info]   at Mux5Test.$anonfun$new$3$adapted(Mux5Test.scala:7)
+[info]   at chiseltest.internal.GenericBackend.$anonfun$run$1(GenericBackend.scala:170)
+[info]   at chiseltest.internal.ThreadedBackend$TesterThread$$anon$1.$anonfun$run$1(ThreadedBackend.scala:495)
+[info]   at chiseltest.internal.GenericBackend.doTimescope(GenericBackend.scala:104)
+[info]   at chiseltest.internal.ThreadedBackend$TesterThread$$anon$1.run(ThreadedBackend.scala:495)
+[info]   ...
+[info] HeapTest:
+[info] Heap
+[info] - should present the currently largest number on io.root while ready and not empty
+[info] - should not change the stored values
+[info] - should assert empty after all numbers have been removed
+[info] - should assert full when 8 numbers have been inserted
+[info] - should deassert full after one number is removed when it was full
+[info] - should not change the sequence if new insertions are issued when it is full
+[info] Run completed in 5 seconds, 406 milliseconds.
+[info] Total number of tests run: 7
+[info] Suites: completed 2, aborted 0
+[info] Tests: succeeded 6, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	Mux5Test
+[error] (Test / test) sbt.TestsFailedException: Tests unsuccessful
+[error] Total time: 7 s, completed Aug 4, 2025, 5:54:44 PM
+[debug] > Exec(idea-shell, None, None)

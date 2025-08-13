@@ -1,0 +1,23 @@
+[debug] > Exec(test, None, None)
+[debug] Evaluating tasks: Test / test
+[debug] Running task... Cancel: Signal, check cycles: false, forcegc: true
+[info] compiling 1 Scala source to D:\Scoala de vara\Chisel\chisel-lab-master\lab4\target\scala-2.13\test-classes ...
+[info] done compiling
+[info] Mux5Test:
+[info] Mux5
+[info] - should pass
+[info] HeapTest:
+[info] Heap
+[info] - should present the currently largest number on io.root while ready and not empty
+[info] - should not change the stored values
+[info] - should assert empty after all numbers have been removed
+[info] - should assert full when 8 numbers have been inserted
+[info] - should deassert full after one number is removed when it was full
+[info] - should not change the sequence if new insertions are issued when it is full
+[info] Run completed in 5 seconds, 301 milliseconds.
+[info] Total number of tests run: 7
+[info] Suites: completed 2, aborted 0
+[info] Tests: succeeded 7, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] Total time: 7 s, completed Aug 4, 2025, 5:54:15 PM
+[debug] > Exec(idea-shell, None, None)
