@@ -4,13 +4,22 @@ import chisel3._
 import chisel3.util._
 import SHA1Consts._
 
-/** SHA-1 core: one round per cycle, processes a single 512-bit block. */
+/** SHA-1 core: one round per cycle, processes a single 512-bit block.
+ * On start, if initValid is true the core uses init as the initial H values,
+ * otherwise it uses the standard IV constants. On completion it writes the new H
+ * values to digest (i.e. H_out = H_in + computed_working_vars).
+ */
 class SHA1Core extends Module {
   val io = IO(new Bundle {
-    val start  = Input(Bool())
-    val block  = Input(Vec(16, UInt(32.W)))   // one 512-bit block, BIG-endian words
-    val done   = Output(Bool())
-    val digest = Output(Vec(5, UInt(32.W)))   // H0..H4
+    val start     = Input(Bool())
+    val block     = Input(Vec(16, UInt(32.W)))   // one 512-bit block, BIG-endian words
+
+    // optional chaining inputs: if initValid true, core will initialize a..e from init on start
+    val init      = Input(Vec(5, UInt(32.W)))
+    val initValid = Input(Bool())
+
+    val done      = Output(Bool())
+    val digest    = Output(Vec(5, UInt(32.W)))   // H0..H4
   })
 
   // Initial state (H0..H4)
@@ -90,16 +99,24 @@ class SHA1Core extends Module {
   // Rounds FSM
   switch(state) {
     is(sIdle) {
-      // start begins a new run: load block, init working state, clear done
       when(io.start) {
+        // load block words
         for (i <- 0 until 16) { wbuf(i) := io.block(i) }
-        a := H0_0; b := H0_1; c := H0_2; d := H0_3; e := H0_4
-        A_init := H0_0; B_init := H0_1; C_init := H0_2; D_init := H0_3; E_init := H0_4
+
+        // initialize H_in and working registers either from init or IV
+        when(io.initValid) {
+          A_init := io.init(0); B_init := io.init(1); C_init := io.init(2)
+          D_init := io.init(3); E_init := io.init(4)
+          a := io.init(0); b := io.init(1); c := io.init(2); d := io.init(3); e := io.init(4)
+        }.otherwise {
+          A_init := H0_0; B_init := H0_1; C_init := H0_2; D_init := H0_3; E_init :=H0_4
+          a := H0_0; b := H0_1; c := H0_2; d := H0_3; e := H0_4
+        }
 
         t := 0.U
         state := sRun
 
-        // clear done for new run; preserve previous digest until final
+        // clear outputs for a new run
         done_reg := false.B
       }
     }
