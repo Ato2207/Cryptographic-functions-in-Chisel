@@ -1,0 +1,6 @@
+[debug] > Exec(test --throw-on-first-error, None, None)
+[error] Expected whitespace character
+[error] Expected '/'
+[error] test --throw-on-first-error
+[error]      ^
+[debug] > Exec(idea-shell, None, None)

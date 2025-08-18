@@ -4,13 +4,13 @@ import chisel3._
 import chisel3.util._
 
 object DESConsts {
-  // All permutation tables are 1-based (as in the spec).
-  // Helper to apply a permutation on a UInt (msb=bit N, lsb=bit 1).
+  /** Permutation helper.
+   * `table` entries are 1-based (1 = LSB of `x`, x.getWidth = MSB).
+   * table(0) becomes MSB of result.
+   */
   def permute(x: UInt, table: Seq[Int]): UInt = {
-    require(table.nonEmpty)
-    require(table.forall(i => i >= 1 && i <= x.getWidth))
-    // table(0) becomes MSB of result; select bit (width - i) from x
-    Cat(table.map { i => x(x.getWidth - i) })
+    val w = x.getWidth
+    Cat(table.map(i => x(w - i)))
   }
 
   // Initial Permutation (IP)
@@ -137,10 +137,10 @@ object DESConsts {
     )
   )
 
-  // Rotate left (width-bit) by sh bits
+  /** Rotate-left (width-bit) by sh bits. sh must be 0 < sh < width. */
   def rol(x: UInt, sh: Int, width: Int): UInt = {
-    require(sh >= 0 && sh < width)
-    val w = width.W
-    ((x << sh.U)(width-1,0)) | (x >> (width - sh)).asUInt
+    val left  = (x << sh.U)(width - 1, 0)
+    val right = (x >> (width - sh)).asUInt
+    (left | right)(width - 1, 0)
   }
 }
