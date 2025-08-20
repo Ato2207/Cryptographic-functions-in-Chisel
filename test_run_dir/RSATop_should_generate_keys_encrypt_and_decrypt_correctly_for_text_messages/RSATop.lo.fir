@@ -1,5 +1,5 @@
 FIRRTL version 1.2.0
-circuit RSAKeyGen :
+circuit RSATop :
   module RSAKeyGen :
     input clock : Clock
     input reset : UInt<1>
@@ -241,3 +241,124 @@ circuit RSAKeyGen :
     newRReg <= bits(_GEN_114, 4095, 0)
     tReg <= _GEN_115
     newTReg <= asSInt(bits(_GEN_116, 4096, 0))
+
+  module RSACore :
+    input clock : Clock
+    input reset : UInt<1>
+    input io_start : UInt<1> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 11:14]
+    input io_base : UInt<4096> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 11:14]
+    input io_exp : UInt<4096> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 11:14]
+    input io_mod : UInt<4096> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 11:14]
+    output io_done : UInt<1> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 11:14]
+    output io_result : UInt<4096> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 11:14]
+
+    reg state : UInt<2>, clock with :
+      reset => (UInt<1>("h0"), state) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 21:22]
+    reg resultReg : UInt<4096>, clock with :
+      reset => (UInt<1>("h0"), resultReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 23:22]
+    reg baseReg : UInt<4096>, clock with :
+      reset => (UInt<1>("h0"), baseReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 24:22]
+    reg expReg : UInt<4096>, clock with :
+      reset => (UInt<1>("h0"), expReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 25:22]
+    node _io_done_T = eq(state, UInt<2>("h2")) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 28:23]
+    node _T = eq(UInt<2>("h0"), state) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 30:17]
+    node _baseReg_T = rem(io_base, io_mod) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 34:30]
+    node _GEN_0 = mux(io_start, UInt<1>("h1"), resultReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 23:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 32:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 33:19]
+    node _GEN_1 = mux(io_start, _baseReg_T, baseReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 24:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 32:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 34:19]
+    node _GEN_2 = mux(io_start, io_exp, expReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 25:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 32:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 35:19]
+    node _GEN_3 = mux(io_start, UInt<2>("h1"), state) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 21:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 32:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 36:19]
+    node _T_1 = eq(UInt<2>("h1"), state) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 30:17]
+    node _doMul_T = bits(expReg, 0, 0) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 41:25]
+    node doMul = eq(_doMul_T, UInt<1>("h1")) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 41:29]
+    node _baseNext_T = mul(baseReg, baseReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 42:31]
+    node baseNext = rem(_baseNext_T, io_mod) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 42:42]
+    node _resultNext_T = mul(resultReg, baseReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 43:46]
+    node _resultNext_T_1 = rem(_resultNext_T, io_mod) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 43:57]
+    node resultNext = mux(doMul, _resultNext_T_1, resultReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 43:27]
+    node expNext = shr(expReg, 1) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 44:28]
+    node _T_2 = eq(expNext, UInt<1>("h0")) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 50:20]
+    node _GEN_4 = mux(_T_2, UInt<2>("h2"), state) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 21:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 50:29 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 51:15]
+    node _T_3 = eq(UInt<2>("h2"), state) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 30:17]
+    node _T_4 = eq(io_start, UInt<1>("h0")) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 56:12]
+    node _GEN_5 = mux(_T_4, UInt<2>("h0"), state) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 21:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 56:23 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 57:15]
+    node _GEN_6 = mux(_T_3, _GEN_5, state) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 21:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 30:17]
+    node _GEN_7 = mux(_T_1, resultNext, resultReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 23:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 30:17 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 46:17]
+    node _GEN_8 = mux(_T_1, baseNext, baseReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 24:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 30:17 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 47:17]
+    node _GEN_9 = mux(_T_1, expNext, expReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 25:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 30:17 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 48:17]
+    node _GEN_10 = mux(_T_1, _GEN_4, _GEN_6) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 30:17]
+    node _GEN_11 = mux(_T, _GEN_0, _GEN_7) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 30:17]
+    node _GEN_12 = mux(_T, _GEN_1, _GEN_8) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 30:17]
+    node _GEN_13 = mux(_T, _GEN_2, _GEN_9) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 30:17]
+    node _GEN_14 = mux(_T, _GEN_3, _GEN_10) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 30:17]
+    io_done <= _io_done_T @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 28:13]
+    io_result <= resultReg @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 27:13]
+    state <= mux(reset, UInt<2>("h0"), _GEN_14) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 21:22 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSACore.scala 21:22]
+    resultReg <= _GEN_11
+    baseReg <= _GEN_12
+    expReg <= _GEN_13
+
+  module RSATop :
+    input clock : Clock
+    input reset : UInt<1>
+    input io_startKeyGen : UInt<1> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 15:14]
+    input io_startEncrypt : UInt<1> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 15:14]
+    input io_startDecrypt : UInt<1> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 15:14]
+    input io_seed : UInt<32> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 15:14]
+    input io_messageIn : UInt<4096> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 15:14]
+    input io_cipherIn : UInt<4096> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 15:14]
+    output io_messageOut : UInt<4096> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 15:14]
+    output io_cipherOut : UInt<4096> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 15:14]
+    output io_doneKeyGen : UInt<1> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 15:14]
+    output io_doneEncrypt : UInt<1> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 15:14]
+    output io_doneDecrypt : UInt<1> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 15:14]
+    output io_n : UInt<4096> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 15:14]
+    output io_e : UInt<32> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 15:14]
+    output io_d : UInt<4096> @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 15:14]
+
+    inst keyGen of RSAKeyGen @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 40:22]
+    inst rsaCore of RSACore @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 52:23]
+    reg startEncryptReg : UInt<1>, clock with :
+      reset => (UInt<1>("h0"), startEncryptReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 55:32]
+    reg doneEncryptReg : UInt<1>, clock with :
+      reset => (UInt<1>("h0"), doneEncryptReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 56:32]
+    reg startDecryptReg : UInt<1>, clock with :
+      reset => (UInt<1>("h0"), startDecryptReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 58:32]
+    reg doneDecryptReg : UInt<1>, clock with :
+      reset => (UInt<1>("h0"), doneDecryptReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 59:32]
+    node _GEN_0 = mux(io_startEncrypt, UInt<1>("h1"), startEncryptReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 55:32 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 62:25 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 63:21]
+    node _GEN_1 = mux(io_startEncrypt, UInt<1>("h0"), doneEncryptReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 56:32 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 62:25 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 64:21]
+    node _rsaCore_io_start_T = or(startEncryptReg, startDecryptReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 67:39]
+    node _rsaCore_io_base_T = mux(startEncryptReg, io_messageIn, io_cipherIn) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 69:26]
+    node _rsaCore_io_exp_T = mux(startEncryptReg, keyGen.io_e, keyGen.io_d) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 70:26]
+    node _GEN_2 = mux(startEncryptReg, UInt<1>("h1"), _GEN_1) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 73:27 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 74:23]
+    node _GEN_3 = mux(startEncryptReg, UInt<1>("h0"), _GEN_0) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 73:27 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 75:23]
+    node _GEN_4 = mux(startDecryptReg, UInt<1>("h1"), doneDecryptReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 59:32 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 77:27 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 78:23]
+    node _GEN_5 = mux(startDecryptReg, UInt<1>("h0"), startDecryptReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 58:32 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 77:27 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 79:23]
+    node _GEN_6 = mux(rsaCore.io_done, _GEN_2, _GEN_1) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 72:25]
+    node _GEN_7 = mux(rsaCore.io_done, _GEN_3, _GEN_0) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 72:25]
+    node _GEN_8 = mux(rsaCore.io_done, _GEN_4, doneDecryptReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 59:32 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 72:25]
+    node _GEN_9 = mux(rsaCore.io_done, _GEN_5, startDecryptReg) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 58:32 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 72:25]
+    node _GEN_10 = mux(io_startDecrypt, UInt<1>("h1"), _GEN_9) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 84:25 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 85:21]
+    node _GEN_11 = mux(io_startDecrypt, UInt<1>("h0"), _GEN_8) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 84:25 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 86:21]
+    io_messageOut <= rsaCore.io_result @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 93:19]
+    io_cipherOut <= rsaCore.io_result @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 92:19]
+    io_doneKeyGen <= keyGen.io_done @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 44:17]
+    io_doneEncrypt <= doneEncryptReg @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 90:19]
+    io_doneDecrypt <= doneDecryptReg @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 91:19]
+    io_n <= keyGen.io_n @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 45:8]
+    io_e <= keyGen.io_e @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 46:8]
+    io_d <= keyGen.io_d @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 47:8]
+    keyGen.clock <= clock
+    keyGen.reset <= reset
+    keyGen.io_start <= io_startKeyGen @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 41:19]
+    keyGen.io_seed <= io_seed @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 42:19]
+    rsaCore.clock <= clock
+    rsaCore.reset <= reset
+    rsaCore.io_start <= _rsaCore_io_start_T @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 67:20]
+    rsaCore.io_base <= _rsaCore_io_base_T @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 69:20]
+    rsaCore.io_exp <= _rsaCore_io_exp_T @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 70:20]
+    rsaCore.io_mod <= keyGen.io_n @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 68:20]
+    startEncryptReg <= mux(reset, UInt<1>("h0"), _GEN_7) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 55:32 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 55:32]
+    doneEncryptReg <= mux(reset, UInt<1>("h0"), _GEN_6) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 56:32 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 56:32]
+    startDecryptReg <= mux(reset, UInt<1>("h0"), _GEN_10) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 58:32 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 58:32]
+    doneDecryptReg <= mux(reset, UInt<1>("h0"), _GEN_11) @[D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 59:32 D:\\Scoala de vara\\Chisel\\Proiect\\src\\main\\scala\\rsa\\RSATop.scala 59:32]
