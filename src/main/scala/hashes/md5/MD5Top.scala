@@ -42,7 +42,7 @@ class MD5Top(val maxBytes: Int) extends Module {
   // Number of 512-bit blocks required (with padding+length)
   private val remBytes: UInt       = io.msgLen(5, 0)               // mod 64
   private val fullBlocks: UInt     = (io.msgLen >> 6).asUInt
-  private val needsTwoBlocks: Bool = remBytes > 56.U
+  private val needsTwoBlocks: Bool = remBytes > 55.U
   private val totalBlocksIn: UInt  = fullBlocks + Mux(needsTwoBlocks, 2.U, 1.U)
 
   // Capture message & reset state on start
@@ -59,7 +59,7 @@ class MD5Top(val maxBytes: Int) extends Module {
 
   // ---------------- Message assembly w/ padding ----------------
   private val msgLenBits: UInt = (msgLenReg.zext << 3).asUInt
-  val blockBase: UInt = blockIdx * 64.U
+  val blockBase: UInt          = blockIdx * 64.U
 
   // Returns byte at absolute index in padded stream
   private def getByte(absIdx: UInt): UInt = {
@@ -105,7 +105,7 @@ class MD5Top(val maxBytes: Int) extends Module {
   private val coreDoneRise: Bool = core.io.done && !coreDonePrev
 
   // ---------------- Outputs ----------------
-  val doneReg: Bool = RegInit(false.B)
+  val doneReg: Bool        = RegInit(false.B)
   val digestReg: Vec[UInt] = RegInit(VecInit(Seq.fill(4)(0.U(32.W))))
   io.done       := doneReg
   io.digest     := digestReg

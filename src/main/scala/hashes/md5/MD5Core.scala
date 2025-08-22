@@ -16,31 +16,31 @@ class MD5Core extends Module {
 
   // --- FSM state machine ---
   object State extends ChiselEnum {
-    val Idle, Run, FinalAdd, Done = Value
+    val idle, run, finalAdd, done = Value
   }
-
-  val state: State.Type = RegInit(State.Idle)
+  import State._
+  val state: State.Type = RegInit(idle)
 
   // --- Constants ---
   private val KVec = VecInit(K) // 64 constants
   private val SVec = VecInit(S.map(_.U(5.W))) // 64 shift amounts
 
   // --- Working registers ---
-  val aReg, bReg, cReg, dReg = Reg(UInt(32.W))
+  val aReg, bReg, cReg, dReg             = Reg(UInt(32.W))
   private val AInit, BInit, CInit, DInit = Reg(UInt(32.W))
 
-  private val roundIdx = RegInit(0.U(7.W)) // 0..63
+  private val roundIdx            = RegInit(0.U(7.W)) // 0..63
   private val msgWords: Vec[UInt] = io.block // 16 words
 
   // --- Outputs ---
-  val doneReg: Bool = RegInit(false.B)
+  val doneReg: Bool        = RegInit(false.B)
   val digestReg: Vec[UInt] = RegInit(VecInit(Seq.fill(4)(0.U(32.W))))
-  io.done := doneReg
+  io.done   := doneReg
   io.digest := digestReg
 
   // --- FSM logic ---
   switch(state) {
-    is(State.Idle) {
+    is(idle) {
       when(io.start) {
         // Load initial chaining state
         aReg := io.initState(0)
@@ -54,21 +54,21 @@ class MD5Core extends Module {
         DInit := io.initState(3)
 
         roundIdx := 0.U
-        doneReg := false.B
-        state := State.Run
+        doneReg  := false.B
+        state    := run
       }
     }
 
-    is(State.Run) {
-      val f = roundFunc(roundIdx, bReg, cReg, dReg)
-      val kConst = KVec(roundIdx)
-      val sAmt = SVec(roundIdx)
+    is(run) {
+      val f       = roundFunc(roundIdx, bReg, cReg, dReg)
+      val kConst  = KVec(roundIdx)
+      val sAmt    = SVec(roundIdx)
       val wordIdx = msgIndex(roundIdx)
       val msgWord = msgWords(wordIdx)
 
-      val sum32 = (aReg + f + kConst + msgWord)(31, 0)
+      val sum32   = aReg + f + kConst + msgWord
       val rotated = rol32(sum32, sAmt)
-      val newB = (bReg + rotated)(31, 0)
+      val newB    = bReg + rotated
 
       // Shuffle state
       aReg := dReg
@@ -77,27 +77,28 @@ class MD5Core extends Module {
       bReg := newB
 
       when(roundIdx === 63.U) {
-        state := State.FinalAdd
+        state := finalAdd
       }.otherwise {
         roundIdx := roundIdx + 1.U
       }
     }
 
-    is(State.FinalAdd) {
-      val AFinal = (AInit + aReg)(31, 0)
-      val BFinal = (BInit + bReg)(31, 0)
-      val CFinal = (CInit + cReg)(31, 0)
-      val DFinal = (DInit + dReg)(31, 0)
+    is(finalAdd) {
+      val AFinal = AInit + aReg
+      val BFinal = BInit + bReg
+      val CFinal = CInit + cReg
+      val DFinal = DInit + dReg
 
       digestReg := VecInit(Seq(AFinal, BFinal, CFinal, DFinal))
-      doneReg := true.B
-      state := State.Done
+      doneReg   := true.B
+      state     := done
     }
 
-    is(State.Done) {
+    is(done) {
       doneReg := true.B
+
       when(!io.start) {
-        state := State.Idle
+        state := idle
       }
     }
   }
