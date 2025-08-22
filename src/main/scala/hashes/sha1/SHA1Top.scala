@@ -1,170 +1,129 @@
 package hashes.sha1
 
 import chisel3._
-import chisel3.util.ImplicitConversions.intToUInt
 import chisel3.util._
 
 class SHA1Top(val maxBytes: Int) extends Module {
-  require(maxBytes > 0)
-
   val io = IO(new Bundle {
-    val start  = Input(Bool())
-    val msg    = Input(Vec(maxBytes, UInt(8.W))) // caller fills bytes before start
-    val msgLen = Input(UInt(log2Ceil(maxBytes + 1).W)) // length in bytes
-    val done   = Output(Bool())
-    val digest = Output(Vec(5, UInt(32.W)))
+    val start: Bool       = Input(Bool())
+    val msg: Vec[UInt]    = Input(Vec(maxBytes, UInt(8.W)))
+    val msgLen: UInt      = Input(UInt(log2Ceil(maxBytes + 1).W))
+    val done: Bool        = Output(Bool())
+    val digest: Vec[UInt] = Output(Vec(5, UInt(32.W)))
   })
 
-  val core = Module(new SHA1Core)
+  val core: SHA1Core = Module(new SHA1Core)
 
-  // ===============================
-  // Latch input message on start
-  // ===============================
-  val start_q    = RegNext(io.start, false.B)
-  val startPulse = io.start && !start_q
+  // ---------------- Internal state ----------------
+  private val mem         = RegInit(VecInit(Seq.fill(maxBytes)(0.U(8.W))))
+  private val msgLenReg   = RegInit(0.U(io.msgLen.getWidth.W))
+  private val blockIdx    = RegInit(0.U(8.W))
+  private val totalBlocks = RegInit(0.U(8.W))
 
-  val mem     = RegInit(VecInit(Seq.fill(maxBytes)(0.U(8.W))))
-  val msgLenR = RegInit(0.U(io.msgLen.getWidth.W))
+  // SHA1 IV
+  private val IV = Seq(
+    "h67452301".U(32.W), "hefcdab89".U(32.W),
+    "h98badcfe".U(32.W), "h10325476".U(32.W),
+    "hc3d2e1f0".U(32.W)
+  )
+  private val chainState = RegInit(VecInit(IV))
 
-  // number of 512-bit blocks to process (including padding)
-  val blockIdx     = RegInit(0.U(16.W))
-  val totalBlocksR = RegInit(0.U(16.W))
+  // Wire the core inputs
+  private val coreWords = Wire(Vec(16, UInt(32.W)))
+  core.io.block     := coreWords
+  core.io.initState := chainState
 
+  // Rising edge detect on external start
+  private val startPrev  = RegNext(io.start, false.B)
+  private val startPulse = io.start && !startPrev
+
+  // ---------------- Block bookkeeping ----------------
+  private val remBytes       = io.msgLen(5, 0)
+  private val fullBlocks     = (io.msgLen >> 6).asUInt
+  private val needsTwoBlocks = remBytes > 55.U
+  private val totalBlocksIn  = fullBlocks + Mux(needsTwoBlocks, 2.U, 1.U)
+
+  // Capture message & reset state on start
   when (startPulse) {
-    for (i <- 0 until maxBytes) { mem(i) := io.msg(i) }
-    msgLenR := io.msgLen
-    blockIdx := 0.U
-
-    // SHA-1 padding occupancy rule:
-    // if (rem <= 55) need 1 block else 2, plus any full blocks before.
-    val rem      = io.msgLen(5, 0)                 // % 64
-    val full     = (io.msgLen >> 6).asUInt         // / 64
-    val addBlks  = Mux(rem <= 55.U, 1.U, 2.U)
-    totalBlocksR := (full + addBlks).asUInt
+    for (i <- 0 until maxBytes) {
+      mem(i) := 0.U
+      when (i.U < io.msgLen) { mem(i) := io.msg(i) }
+    }
+    msgLenReg   := io.msgLen
+    totalBlocks := totalBlocksIn
+    blockIdx    := 0.U
+    chainState  := VecInit(IV)
   }
 
-  // ===============================
-  // Build current block (big-endian)
-  // ===============================
-  // absolute byte index into the conceptual padded message stream
-  val blockBase = blockIdx * 64.U  // 64 bytes per block
+  // ---------------- Message assembly with SHA-1 padding (big-endian length) ----------------
+  private val msgLenBits = (msgLenReg.zext << 3).asUInt // length in bits
+  private val lenBits64  = msgLenBits.pad(64) // pad to 64 bits and emit big-endian length bytes
+  private val blockBase  = blockIdx * 64.U
 
-  // bit-length as 64-bit big-endian value of original message (in bits)
-  private val lenShifted = (msgLenR << 3).asUInt
-  private val lenBits    = Cat(0.U((64 - lenShifted.getWidth).W), lenShifted) // zero-extend to 64b
+  private def getByte(absIdx: UInt): UInt = {
+    val inMsg        = absIdx < msgLenReg
+    val isPadStart   = absIdx === msgLenReg
+    val lenFieldBeg  = (totalBlocks * 64.U) - 8.U
+    val inLenField   = absIdx >= lenFieldBeg
 
-  // where the 8 length bytes start (absolute index)
-  private val finalLenStart = (totalBlocksR * 64.U) - 8.U
-
-  // helper: fetch abstract padded stream byte at absIdx
-  def getByteAtAbs(absIdx: UInt): UInt = {
-    val inMsg     = absIdx < msgLenR
-    val isPad80   = absIdx === msgLenR
-    val isLenByte = absIdx >= finalLenStart
-
-    // choose from: message | 0x80 | zeros | length[8]
     val memIdxBits = log2Ceil(maxBytes)
     val memIdx     = absIdx(memIdxBits - 1, 0)
 
-    val lenByteIdx = absIdx - finalLenStart // 0..7
-    // big-endian length: most significant byte first
+    // BIG-endian length bytes: most significant byte first
+    val lenByteIdx = absIdx - lenFieldBeg     // 0..7
     val shift      = (7.U - lenByteIdx) * 8.U
-    val lenByte    = (lenBits >> shift)(7,0)
+    val lenByte    = (lenBits64 >> shift)(7,0)
 
     Mux(inMsg, mem(memIdx),
-      Mux(isPad80, 0x80.U(8.W),
-        Mux(isLenByte, lenByte, 0.U(8.W))
+      Mux(isPadStart, 0x80.U(8.W),
+        Mux(inLenField, lenByte, 0.U(8.W))
       )
     )
   }
 
-  // Assemble 16×32-bit big-endian words for the current block
-  val blockWords = Wire(Vec(16, UInt(32.W)))
+  // Assemble 16 big-endian words
   for (w <- 0 until 16) {
-    val base = (w * 4).U
-    val b0 = getByteAtAbs(blockBase + base + 0.U)
-    val b1 = getByteAtAbs(blockBase + base + 1.U)
-    val b2 = getByteAtAbs(blockBase + base + 2.U)
-    val b3 = getByteAtAbs(blockBase + base + 3.U)
-    // SHA-1 expects BIG-endian words
-    blockWords(w) := Cat(b0, b1, b2, b3)
+    val base = blockBase + (w.U << 2).asUInt
+    val b0 = getByte(base + 0.U)
+    val b1 = getByte(base + 1.U)
+    val b2 = getByte(base + 2.U)
+    val b3 = getByte(base + 3.U)
+    coreWords(w) := Cat(b0, b1, b2, b3) // big-endian word
   }
 
-  // ===============================
-  // Drive the core
-  // ===============================
-  // Defaults (avoid FIRRTL init errors)
-  core.io.block     := blockWords
-  core.io.start     := false.B
-  core.io.init      := VecInit(Seq.fill(5)(0.U(32.W)))
-  core.io.initValid := false.B
+  // ---------------- Drive core (same pulse style as MD5Top) ----------------
+  private val issueStart = RegInit(false.B)
+  core.io.start := issueStart
 
-  // We pass chaining state via init/initValid for subsequent blocks.
-  val digestR = RegInit(VecInit(Seq.fill(5)(0.U(32.W))))
-  val doneR   = RegInit(false.B)
-
-  // On each block completion, capture the running digest.
-  when (core.io.done) {
-    digestR := core.io.digest
+  when (startPulse) {
+    issueStart := true.B
+  } .otherwise {
+    issueStart := false.B
   }
 
-  // For block 0: let core use its own IVs (initValid=false).
-  // For block >0: initValid=true and init=digestR from previous block.
-  val isFirstBlock = blockIdx === 0.U
-  core.io.initValid := !isFirstBlock
-  core.io.init      := digestR
+  // detect core done rising edge
+  private val coreDonePrev = RegNext(core.io.done, false.B)
+  private val coreDoneRise = core.io.done && !coreDonePrev
 
-  // ===============================
-  // Simple FSM to step blocks
-  // ===============================
-  val sIdle :: sRun :: sWait :: sDone :: Nil = Enum(4)
-  val state = RegInit(sIdle)
+  // ---------------- Outputs & chaining ----------------
+  private val doneReg   = RegInit(false.B)
+  private val digestReg = RegInit(VecInit(Seq.fill(5)(0.U(32.W))))
+  io.done   := doneReg
+  io.digest := digestReg
 
-  // one-cycle pulse into core at the start of each block
-  val coreStart = RegInit(false.B)
-  core.io.start := coreStart
-
-  // clear done on new message
-  when (startPulse) { doneR := false.B }
-
-  switch (state) {
-    is (sIdle) {
-      when (startPulse) {
-        // reset chaining reg so block 0 starts from the core IVs
-        // (digestR value is ignored because initValid=false for first block)
-        blockIdx := 0.U
-        state    := sRun
-      }
-    }
-
-    is (sRun) {
-      // pulse start into the core for this block
-      coreStart := true.B
-      state     := sWait
-    }
-
-    is (sWait) {
-      coreStart := false.B
-      when (core.io.done) {
-        when (blockIdx === (totalBlocksR - 1.U)) {
-          // last block done
-          doneR  := true.B
-          state  := sDone
-        } .otherwise {
-          blockIdx := blockIdx + 1.U
-          state    := sRun
-        }
-      }
-    }
-
-    is (sDone) {
-      // hold done high until next start
-      when (!io.start) {
-        state := sIdle
-      }
+  when (coreDoneRise) {
+    chainState := core.io.digest
+    when (blockIdx === (totalBlocks - 1.U)) {
+      digestReg := core.io.digest
+      doneReg   := true.B
+    } .otherwise {
+      blockIdx   := blockIdx + 1.U
+      issueStart := true.B // launch next block
     }
   }
 
-  io.done   := doneR
-  io.digest := digestR
+  when (startPulse) {
+    doneReg   := false.B
+    digestReg := VecInit(Seq.fill(5)(0.U(32.W)))
+  }
 }
