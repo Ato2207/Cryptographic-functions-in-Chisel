@@ -33,11 +33,7 @@ object MD5Consts {
   )
 
   // --- Helpers ---
-  def rol32(v: UInt, s: UInt): UInt = {
-    val left = (v << s)(31, 0)
-    val right = (v >> (32.U - s))(31, 0)
-    left | right
-  }
+  def rol(x: UInt, s: UInt): UInt = (x << s).asUInt | (x >> (32.U - s)).asUInt
 
   def roundFunc(i: UInt, B: UInt, C: UInt, D: UInt): UInt = {
     Mux(i < 16.U, (B & C) | ((~B).asUInt & D),

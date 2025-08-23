@@ -2,6 +2,7 @@ package hashes.md5
 
 import chisel3._
 import chisel3.util._
+import MD5Consts._
 
 class MD5Core extends Module {
   val io = IO(new Bundle {
@@ -11,8 +12,6 @@ class MD5Core extends Module {
     val done: Bool           = Output(Bool())
     val digest: Vec[UInt]    = Output(Vec(4, UInt(32.W))) // output state (A,B,C,D)
   })
-
-  import MD5Consts._
 
   // --- FSM state machine ---
   object State extends ChiselEnum {
@@ -67,7 +66,7 @@ class MD5Core extends Module {
       val msgWord = msgWords(wordIdx)
 
       val sum32   = aReg + f + kConst + msgWord
-      val rotated = rol32(sum32, sAmt)
+      val rotated = rol(sum32, sAmt)
       val newB    = bReg + rotated
 
       // Shuffle state

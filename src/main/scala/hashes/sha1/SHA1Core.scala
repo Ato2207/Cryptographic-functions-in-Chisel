@@ -33,15 +33,11 @@ class SHA1Core extends Module {
   io.done   := doneReg
   io.digest := digestReg
 
-  // --- Helpers ---
-  private def rol(x: UInt, s: Int): UInt = (x << s.U).asUInt | (x >> (32.U - s.U)).asUInt
-
   private def f(t: UInt, b: UInt, c: UInt, d: UInt): UInt =
     Mux(t < 20.U, (b & c) | ((~b).asUInt & d),
       Mux(t < 40.U, b ^ c ^ d,
         Mux(t < 60.U, (b & c) | (b & d) | (c & d),
           b ^ c ^ d)))
-
 
   private def Kconst(t: UInt): UInt =
     Mux(t < 20.U, K0,
