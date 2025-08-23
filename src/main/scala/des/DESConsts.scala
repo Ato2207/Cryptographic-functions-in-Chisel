@@ -137,10 +137,7 @@ object DESConsts {
     )
   )
 
-  /** Rotate-left (width-bit) by sh bits. sh must be 0 < sh < width. */
-  def rol(x: UInt, sh: Int, width: Int): UInt = {
-    val left  = (x << sh.U)(width - 1, 0)
-    val right = (x >> (width - sh)).asUInt
-    (left | right)(width - 1, 0)
-  }
+  // === Helpers ===
+  /** Rotate-left by sh bits. */
+  def rol(x: UInt, s: UInt): UInt = (x << s).asUInt | (x >> (32.U - s)).asUInt
 }

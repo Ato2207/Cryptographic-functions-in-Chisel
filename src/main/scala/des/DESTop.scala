@@ -26,18 +26,18 @@ class DESTop(val maxBytes: Int) extends Module {
   private val startEdge = io.start && !startPrev
 
   // --- Latched inputs (captured on startEdge)
-  val mem: Vec[UInt]   = RegInit(VecInit(Seq.fill(maxBytes)(0.U(8.W))))
-  val msgLenR: UInt    = RegInit(0.U(io.msgLen.getWidth.W))
-  private val encryptR = RegInit(false.B)
-  private val blocksR  = RegInit(0.U(16.W))
+  val mem: Vec[UInt]        = RegInit(VecInit(Seq.fill(maxBytes)(0.U(8.W))))
+  private val msgLenR: UInt = RegInit(0.U(io.msgLen.getWidth.W))
+  private val encryptR      = RegInit(false.B)
+  private val blocksR       = RegInit(0.U(16.W))
 
   // --- CBC / outputs
-  private val blkIdx    = RegInit(0.U(16.W))
-  private val prevCt    = RegInit(0.U(64.W))                         // previous ciphertext (C_{i-1}) or IV
-  private val outBuf    = RegInit(VecInit(Seq.fill(maxBytes + 8)(0.U(8.W))))
-  private val outLenR   = RegInit(0.U(io.outLen.getWidth.W))
-  val doneR: Bool       = RegInit(false.B)
-  private val lastPad   = RegInit(0.U(8.W))                          // candidate pad byte on decrypt
+  private val blkIdx      = RegInit(0.U(16.W))
+  private val prevCt      = RegInit(0.U(64.W))            // previous ciphertext (C_{i-1}) or IV
+  private val outBuf      = RegInit(VecInit(Seq.fill(maxBytes + 8)(0.U(8.W))))
+  private val outLenR     = RegInit(0.U(io.outLen.getWidth.W))
+  private val lastPad     = RegInit(0.U(8.W))             // candidate pad byte on decrypt
+  private val doneR: Bool = RegInit(false.B)
 
   io.done   := doneR
   io.out    := outBuf
@@ -45,13 +45,13 @@ class DESTop(val maxBytes: Int) extends Module {
 
   // --- helpers
   private def pack64(bytes: Seq[UInt]): UInt = bytes.reduceLeft((a, b) => Cat(a, b))
-  private def unpack64(x: UInt): Vec[UInt] = VecInit((0 until 8).map(i => x(63 - 8 * i, 56 - 8 * i)))
+  private def unpack64(x: UInt): Vec[UInt]   =
+    VecInit((0 until 8).map(i => x(63 - 8 * i, 56 - 8 * i)))
 
-  val rem_in: UInt = io.msgLen(2, 0)
-  val full_in: UInt = (io.msgLen >> 3).asUInt
-  private val totalBlocksEnc = full_in + 1.U
-  private val totalBlocksDec = full_in
-  val totalBlocks_in: UInt = Mux(io.encrypt, totalBlocksEnc, totalBlocksDec)
+  private val full_in: UInt        = (io.msgLen >> 3).asUInt
+  private val totalBlocksEnc       = full_in + 1.U
+  private val totalBlocksDec       = full_in
+  private val totalBlocks_in: UInt = Mux(io.encrypt, totalBlocksEnc, totalBlocksDec)
 
   // --- assemble block bytes
   val blockBase: UInt = blkIdx * 8.U
@@ -63,15 +63,17 @@ class DESTop(val maxBytes: Int) extends Module {
 
   private def plainByteAt(absIdx: UInt, pad: UInt): UInt = {
     val idxBits = log2Ceil(maxBytes)
-    val idx = absIdx(idxBits - 1, 0)
+    val idx     = absIdx(idxBits - 1, 0)
     val inRange = absIdx < msgLenR
     val padByte = pad & 0xff.U(8.W)
+
     Mux(inRange, mem(idx), padByte)
   }
 
   private def cipherByteAt(absIdx: UInt): UInt = {
     val idxBits = log2Ceil(maxBytes)
-    val idx = absIdx(idxBits - 1, 0)
+    val idx     = absIdx(idxBits - 1, 0)
+
     mem(idx)
   }
 
@@ -82,51 +84,71 @@ class DESTop(val maxBytes: Int) extends Module {
   }
 
   private val plainBlock64 = pack64((0 until 8).map(i => blockBytes(i)))
-  private val coreIn = Wire(UInt(64.W))
+  private val coreIn       = Wire(UInt(64.W))
   coreIn := Mux(encryptR, plainBlock64 ^ prevCt, plainBlock64)
 
-  core.io.start := false.B // overridden by FSM
+  core.io.start   := false.B // overridden by FSM
   core.io.encrypt := encryptR
-  core.io.key64 := io.key
+  core.io.key64   := io.key
   core.io.inBlock := coreIn
 
   // --- FSM
-  val sIdle :: sPrep :: sRun :: sWait :: sFinish :: sDone :: Nil = Enum(6)
-  val state: UInt = RegInit(sIdle)
+  object State extends ChiselEnum {
+    val idle, prep, run, loop, finish, done = Value
+  }
+  import State._
+  val state: State.Type = RegInit(idle)
 
   // latch inputs when startEdge observed
   when(startEdge) {
-    for (i <- 0 until maxBytes) mem(i) := io.msg(i)
-    msgLenR := io.msgLen
+    for (i <- 0 until maxBytes) {
+      mem(i) := Mux(i.U < io.msgLen, io.msg(i), 0.U)
+    }
+
+    msgLenR  := io.msgLen
     encryptR := io.encrypt
-    blocksR := totalBlocks_in
-    prevCt := io.iv
-    blkIdx := 0.U
-    outLenR := Mux(io.encrypt, totalBlocks_in * 8.U, io.msgLen)
-    doneR := false.B
+    blocksR  := totalBlocks_in
+    prevCt   := io.iv
+    blkIdx   := 0.U
+    outLenR  := Mux(io.encrypt, totalBlocks_in * 8.U, io.msgLen)
+    doneR    := false.B
   }
 
-  core.io.start := (state === sPrep)
+  core.io.start := (state === prep)
 
   switch(state) {
-    is(sIdle) {
-      when(startEdge) { state := Mux(totalBlocks_in === 0.U, sFinish, sPrep) }
+    is(idle) {
+      when(startEdge) {
+        state := Mux(totalBlocks_in === 0.U, finish, prep)
+      }
     }
-    is(sPrep) { state := sRun } // core start asserted this cycle
-    is(sRun)  { state := sWait } // let core run
-    is(sWait) {
+
+    is(prep) {
+      state := run  // core start asserted this cycle
+    }
+
+    is(run)  {
+      state := loop // let core run
+    }
+
+    is(loop) {
       when(core.io.done) {
-        val y = core.io.outBlock
+        val y         = core.io.outBlock
         val writeBase = (blkIdx << 3).asUInt
 
         when(encryptR) {
           val cbytes = unpack64(y)
           for (i <- 0 until 8) outBuf(writeBase + i.U) := cbytes(i)
+
           prevCt := y
-          when(blkIdx === (blocksR - 1.U)) { state := sFinish }
-            .otherwise { blkIdx := blkIdx + 1.U; state := sPrep }
+
+          when(blkIdx === (blocksR - 1.U)) {
+            state := finish
+          } .otherwise {
+            blkIdx := blkIdx + 1.U; state := prep
+          }
         } .otherwise {
-          val xored = y ^ prevCt
+          val xored  = y ^ prevCt
           val pbytes = unpack64(xored)
           for (i <- 0 until 8) outBuf(writeBase + i.U) := pbytes(i)
 
@@ -135,29 +157,33 @@ class DESTop(val maxBytes: Int) extends Module {
 
           when(blkIdx === (blocksR - 1.U)) {
             lastPad := pbytes(7)
-            state := sFinish
+            state   := finish
           } .otherwise {
-            blkIdx := blkIdx + 1.U
-            state := sPrep
+            blkIdx  := blkIdx + 1.U
+            state   := prep
           }
         }
       }
     }
 
-    is(sFinish) {
+    is(finish) {
       when(!encryptR && blocksR =/= 0.U) {
-        val pad8 = lastPad(7, 0)
-        val padOK = (pad8 >= 1.U) && (pad8 <= 8.U)
+        val pad8   = lastPad(7, 0)
+        val padOK  = (pad8 >= 1.U) && (pad8 <= 8.U)
         val tbytes = blocksR * 8.U
         outLenR := Mux(padOK, (tbytes - pad8).asUInt, msgLenR)
       }
+
       doneR := true.B
-      state := sDone
+      state := done
     }
 
-    is(sDone) {
+    is(done) {
       doneR := true.B
-      when(!io.start) { state := sIdle }
+
+      when(!io.start) {
+        state := idle
+      }
     }
   }
 }

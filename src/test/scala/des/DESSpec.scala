@@ -5,90 +5,75 @@ import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
 
 class DESSpec extends AnyFlatSpec with ChiselScalatestTester {
-  // Helper: load a message array into DUT
-  private def loadMsg(dut: DESTop, msg: Array[Byte]): Unit = {
-    for (i <- 0 until dut.maxBytes) {
-      dut.io.msg(i).poke(if (i < msg.length) (msg(i) & 0xff).U else 0.U)
-    }
-    dut.io.msgLen.poke(msg.length.U)
-  }
-
-  // Helper: start the operation (encrypt/decrypt) and wait for done
-  private def runOp(dut: DESTop, encrypt: Boolean): Unit = {
-    dut.io.encrypt.poke(encrypt.B)
-    dut.io.start.poke(true.B)
-    dut.clock.step(1)
-    dut.io.start.poke(false.B)
-    while (!dut.io.done.peek().litToBoolean) dut.clock.step(1)
-  }
-
-  // Helper: ensure FSM back to idle
-  private def resetFSM(dut: DESTop): Unit = {
-    dut.io.start.poke(false.B)
-    dut.clock.step(1)
-  }
-
-  // Helper: read back the output as bytes
-  private def readOut(dut: DESTop, outLen: Int): Array[Byte] = {
-    (0 until outLen).map(i => dut.io.out(i).peek().litValue.toByte).toArray
-  }
-
-  "DESTop" should "encrypt and decrypt a short string" in {
-    test(new DESTop(maxBytes = 64)) { dut =>
-      val key = BigInt("133457799BBCDFF1", 16)
-      val iv  = BigInt("0123456789ABCDEF", 16)
-      val msg = "abc".getBytes("ASCII")
-
-      dut.io.key.poke(key)
-      dut.io.iv.poke(iv)
-
-      // Encrypt
-      loadMsg(dut, msg)
-      runOp(dut, encrypt = true)
-      val encLen = dut.io.outLen.peek().litValue.toInt
-      val cipher = readOut(dut, encLen)
-      assert(encLen == 8, "Expected 8 bytes of ciphertext for 3-byte input")
-
-      // Reset FSM to idle
-      resetFSM(dut)
-
-      // Decrypt
-      loadMsg(dut, cipher)
-      runOp(dut, encrypt = false)
-      val decLen = dut.io.outLen.peek().litValue.toInt
-      val dec = readOut(dut, decLen)
-      assert(decLen == msg.length, "Decrypted length mismatch")
-      assert(dec.sameElements(msg), "Decrypted plaintext does not match original")
-    }
-  }
-
-  it should "encrypt and decrypt a long string in CBC mode" in {
-    test(new DESTop(maxBytes = 128)) { dut =>
-      val key = BigInt("133457799BBCDFF1", 16)
-      val iv  = BigInt("0123456789ABCDEF", 16)
-      val plaintext = "The quick brown fox jumps over the lazy dog"
+  def runDESTest(keyHex: String, ivHex: String, plaintext: String, maxBytes: Int): Unit = {
+    test(new DESTop(maxBytes)) { dut =>
+      val key = BigInt(keyHex, 16)
+      val iv  = BigInt(ivHex, 16)
       val msg = plaintext.getBytes("ASCII")
 
+      // --- Load key and IV ---
       dut.io.key.poke(key)
       dut.io.iv.poke(iv)
 
-      // Encrypt
-      loadMsg(dut, msg)
-      runOp(dut, encrypt = true)
+      // --- Encrypt ---
+      for (i <- msg.indices) {
+        dut.io.msg(i).poke(msg(i).U)
+      }
+      dut.io.msgLen.poke(msg.length.U)
+
+      dut.io.encrypt.poke(true.B)
+
+      dut.io.start.poke(true.B)
+      dut.clock.step(1)
+      dut.io.start.poke(false.B)
+
+      while (!dut.io.done.peek().litToBoolean) {
+        dut.clock.step(1)
+      }
+
       val encLen = dut.io.outLen.peek().litValue.toInt
-      val cipher = readOut(dut, encLen)
+      val cipher = (0 until encLen).map(i => dut.io.out(i).peek().litValue.toByte).toArray
 
-      // Reset FSM to idle
-      resetFSM(dut)
+      // --- Reset FSM to idle ---
+      dut.clock.step(1)
 
-      // Decrypt
-      loadMsg(dut, cipher)
-      runOp(dut, encrypt = false)
+      // --- Decrypt ---
+      for (i <- cipher.indices) {
+        dut.io.msg(i).poke((cipher(i) & 0xff).U)
+      }
+      dut.io.msgLen.poke(cipher.length.U)
+
+      dut.io.encrypt.poke(false.B)
+      dut.io.start.poke(true.B)
+      dut.clock.step(1)
+      dut.io.start.poke(false.B)
+
+      while (!dut.io.done.peek().litToBoolean) {
+        dut.clock.step(1)
+      }
+
       val decLen = dut.io.outLen.peek().litValue.toInt
-      val dec = readOut(dut, decLen)
+      val dec = (0 until decLen).map(i => dut.io.out(i).peek().litValue.toByte).toArray
 
+      // --- Assertions ---
       assert(decLen == msg.length, "Decrypted length mismatch")
       assert(dec.sameElements(msg), "Decrypted plaintext does not match original")
     }
+  }
+
+  "DESTop" should "encrypt/decrypt a short string" in {
+    runDESTest("133457799BBCDFF1", "0123456789ABCDEF", "abc", 64)
+  }
+
+  "DESTop" should "encrypt/decrypt a 40 bytes string" in {
+    runDESTest("539152739FFFE253", "0123456789ABCDEF", "cb" * 20, 64)
+  }
+
+  "DESTop" should "encrypt/decrypt a 60 bytes string" in {
+    runDESTest("539152739FFFE253", "9876543210FEDCBA", "M23" * 20, 128)
+  }
+
+  "DESTop" should "encrypt/decrypt a 100 bytes string" in {
+    runDESTest("302830239CDAB798", "23195BFFF985C11A", "P0KX" * 25, 128)
   }
 }
