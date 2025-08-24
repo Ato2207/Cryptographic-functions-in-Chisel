@@ -4,38 +4,41 @@ import chisel3._
 import chisel3.util._
 import scala.util.Random
 
-class RSAKeyGen(val keyBits: Int, val genSeed: Int = 0xC0FFEE) extends Module {
-  private val modulusBits = 2 * keyBits
+class RSAKeyGen(val modulusBits: Int, val genSeed: Int = 0xC0FFEE) extends Module {
+  private val primeBits = modulusBits / 2
 
   val io = IO(new Bundle {
     val start: Bool = Input(Bool())
-    val seed: UInt = Input(UInt(32.W))
-    val done: Bool = Output(Bool())
-    val n: UInt = Output(UInt(modulusBits.W)) // modulus
-    val e: UInt = Output(UInt(32.W))          // public exponent
-    val d: UInt = Output(UInt(modulusBits.W)) // private exponent
+    val seed: UInt  = Input(UInt(32.W))
+    val done: Bool  = Output(Bool())
+    val n: UInt     = Output(UInt(modulusBits.W)) // modulus
+    val e: UInt     = Output(UInt(32.W))          // public exponent
+    val d: UInt     = Output(UInt(modulusBits.W)) // private exponent
   })
 
   // ------------------------
   // FSM States
   // ------------------------
-  val sIdle :: sGenP :: sGenQ :: sComputeN :: sChooseE :: sGCD :: sInv :: sDone :: Nil = Enum(8)
-  val state: UInt = RegInit(sIdle)
+  object State extends ChiselEnum {
+    val idle, genP, genQ, computeN, chooseE, gcd, inv, done = Value
+  }
+  import State._
+  val state: State.Type = RegInit(idle)
 
   // Rising-edge detection for start
-  val startPrev: Bool = RegNext(io.start, false.B)
+  val startPrev: Bool  = RegNext(io.start, false.B)
   val startPulse: Bool = io.start && !startPrev
 
   // ------------------------
   // Registers
   // ------------------------
-  private val pReg: UInt = RegInit(0.U(keyBits.W))
-  private val qReg: UInt = RegInit(0.U(keyBits.W))
-  private val nReg: UInt = RegInit(0.U(modulusBits.W))
+  private val pReg: UInt   = RegInit(0.U(primeBits.W))
+  private val qReg: UInt   = RegInit(0.U(primeBits.W))
+  private val nReg: UInt   = RegInit(0.U(modulusBits.W))
   private val phiReg: UInt = RegInit(0.U(modulusBits.W))
-  private val eReg: UInt = RegInit(0.U(32.W))
-  private val dReg: UInt = RegInit(1.U(modulusBits.W))
-  val doneReg: Bool = RegInit(false.B)
+  private val eReg: UInt   = RegInit(0.U(32.W))
+  private val dReg: UInt   = RegInit(1.U(modulusBits.W))
+  val doneReg: Bool        = RegInit(false.B)
 
   io.n    := nReg
   io.e    := eReg
@@ -43,16 +46,16 @@ class RSAKeyGen(val keyBits: Int, val genSeed: Int = 0xC0FFEE) extends Module {
   io.done := doneReg
 
   // Candidate exponent and GCD registers
-  private val eCandidate: UInt = RegInit(3.U(32.W))
-  private val gcdA: UInt = RegInit(0.U(modulusBits.W))
-  private val gcdB: UInt = RegInit(0.U(modulusBits.W))
+  private val eCandidate: UInt  = RegInit(3.U(32.W))
+  private val gcdA: UInt        = RegInit(0.U(modulusBits.W))
+  private val gcdB: UInt        = RegInit(0.U(modulusBits.W))
   private val phiMinusOne: UInt = Wire(UInt(modulusBits.W))
   phiMinusOne := Mux(phiReg === 0.U, 0.U, phiReg - 1.U)
 
   // Extended Euclidean Algorithm registers
-  private val rReg: UInt = Reg(UInt(modulusBits.W))
+  private val rReg: UInt    = Reg(UInt(modulusBits.W))
   private val newRReg: UInt = Reg(UInt(modulusBits.W))
-  private val tReg: SInt = Reg(SInt((modulusBits + 1).W))
+  private val tReg: SInt    = Reg(SInt((modulusBits + 1).W))
   private val newTReg: SInt = Reg(SInt((modulusBits + 1).W))
 
   // ------------------------
@@ -83,7 +86,7 @@ class RSAKeyGen(val keyBits: Int, val genSeed: Int = 0xC0FFEE) extends Module {
     }
 
     (0 until rounds).forall { _ =>
-      val a = (BigInt(keyBits, rndLocal) % (n - 3)) + 2
+      val a = (BigInt(primeBits, rndLocal) % (n - 3)) + 2
       trial(a)
     }
   }
@@ -98,26 +101,27 @@ class RSAKeyGen(val keyBits: Int, val genSeed: Int = 0xC0FFEE) extends Module {
   // FSM Logic
   // ------------------------
   switch(state) {
-    is(sIdle) {
+    is(idle) {
       doneReg := false.B
+
       when(startPulse) {
-        state := sGenP
+        state := genP
       }
     }
 
-    is(sGenP) {
-      val p = generatePrime(keyBits)
-      pReg := p.U(keyBits.W)
-      state := sGenQ
+    is(genP) {
+      val p = generatePrime(primeBits)
+      pReg  := p.U(primeBits.W)
+      state := genQ
     }
 
-    is(sGenQ) {
-      val q = generatePrime(keyBits)
-      qReg := q.U(keyBits.W)
-      state := sComputeN
+    is(genQ) {
+      val q = generatePrime(primeBits)
+      qReg  := q.U(primeBits.W)
+      state := computeN
     }
 
-    is(sComputeN) {
+    is(computeN) {
       val pBig = pReg.zext
       val qBig = qReg.zext
       nReg   := (pBig * qBig).asUInt.pad(modulusBits)
@@ -126,30 +130,30 @@ class RSAKeyGen(val keyBits: Int, val genSeed: Int = 0xC0FFEE) extends Module {
       val seedOdd = Cat(io.seed(31,1), 1.U(1.W)) // ensure odd
       val startE  = Mux(seedOdd < 3.U, 3.U, seedOdd)
       eCandidate := Mux(startE >= phiMinusOne, 3.U, startE(31,0))
-      state := sChooseE
+      state      := chooseE
     }
 
-    is(sChooseE) {
-      gcdA := phiReg
-      gcdB := eCandidate.pad(modulusBits)
-      state := sGCD
+    is(chooseE) {
+      gcdA  := phiReg
+      gcdB  := eCandidate.pad(modulusBits)
+      state := gcd
     }
 
-    is(sGCD) {
+    is(gcd) {
       when(gcdB === 0.U) {
         when(gcdA === 1.U) {
           // Found valid e
-          eReg := eCandidate
+          eReg    := eCandidate
           rReg    := phiReg
           newRReg := eCandidate
           tReg    := 0.S
           newTReg := 1.S
-          state   := sInv
+          state   := inv
         } .otherwise {
           // Try next candidate e
           val nextE = eCandidate + 2.U
           eCandidate := Mux(nextE >= phiMinusOne, 3.U, nextE)
-          state := sChooseE
+          state := chooseE
         }
       } .otherwise {
         val remainder = (gcdA % gcdB).asUInt
@@ -158,28 +162,31 @@ class RSAKeyGen(val keyBits: Int, val genSeed: Int = 0xC0FFEE) extends Module {
       }
     }
 
-    is(sInv) {
+    is(inv) {
       when(newRReg === 0.U) {
-        state := sIdle // should not happen
+        state := idle // should not happen
       } .elsewhen(newRReg === 1.U) {
         val dPositive = Mux(newTReg < 0.S, newTReg + phiReg.asSInt, newTReg)
-        dReg := dPositive.asUInt
-        state := sDone
+        dReg  := dPositive.asUInt
+        state := done
       } .otherwise {
         val quotient = rReg / newRReg
-        val tmpR = rReg - quotient * newRReg
-        rReg := newRReg
+        val tmpR     = rReg - quotient * newRReg
+        rReg    := newRReg
         newRReg := tmpR
 
         val tmpT = tReg - (quotient.asSInt * newTReg)
-        tReg := newTReg
+        tReg    := newTReg
         newTReg := tmpT
       }
     }
 
-    is(sDone) {
+    is(done) {
       doneReg := true.B
-      when(!io.start) { state := sIdle }
+
+      when(!io.start) {
+        state := idle
+      }
     }
   }
 }

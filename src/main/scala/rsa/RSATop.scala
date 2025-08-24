@@ -8,26 +8,26 @@ import chisel3._
  *  - Provides encryption (m^e mod n)
  *  - Provides decryption (c^d mod n)
  */
-class RSATop(val keyBits: Int) extends Module {
-  val modulusBits: Int = 2 * keyBits
-
+class RSATop(val modulusBits: Int) extends Module {
   val io = IO(new Bundle {
     // Control
-    val startKeyGen: Bool = Input(Bool())   // Start key generation
+    val startKeyGen: Bool  = Input(Bool())   // Start key generation
     val startEncrypt: Bool = Input(Bool())   // Start encryption
     val startDecrypt: Bool = Input(Bool())   // Start decryption
-    val seed: UInt = Input(UInt(32.W))
+    val seed: UInt         = Input(UInt(32.W))
 
     // Data
-    val messageIn: UInt = Input(UInt(modulusBits.W)) // plaintext
-    val cipherIn: UInt = Input(UInt(modulusBits.W)) // ciphertext
-    val messageOut: UInt = Output(UInt(modulusBits.W))// decrypted
-    val cipherOut: UInt = Output(UInt(modulusBits.W))// encrypted
+    val messageIn: UInt  = Input(UInt(modulusBits.W))  // plaintext
+    val cipherIn: UInt   = Input(UInt(modulusBits.W))  // ciphertext
+    val messageOut: UInt = Output(UInt(modulusBits.W)) // decrypted
+    val cipherOut: UInt  = Output(UInt(modulusBits.W)) // encrypted
 
-    // Status + keys
-    val doneKeyGen: Bool = Output(Bool())
+    // Status
+    val doneKeyGen: Bool  = Output(Bool())
     val doneEncrypt: Bool = Output(Bool())
     val doneDecrypt: Bool = Output(Bool())
+
+    // Key outputs
     val n: UInt = Output(UInt(modulusBits.W))
     val e: UInt = Output(UInt(32.W))
     val d: UInt = Output(UInt(modulusBits.W))
@@ -36,7 +36,7 @@ class RSATop(val keyBits: Int) extends Module {
   // ----------------------------
   // Key generation submodule
   // ----------------------------
-  private val keyGen: RSAKeyGen = Module(new RSAKeyGen(keyBits))
+  private val keyGen: RSAKeyGen = Module(new RSAKeyGen(modulusBits))
   keyGen.io.start := io.startKeyGen
   keyGen.io.seed  := io.seed
 
@@ -52,10 +52,10 @@ class RSATop(val keyBits: Int) extends Module {
 
   // Registers to hold start/done signals for encryption
   private val startEncryptReg: Bool = RegInit(false.B)
-  private val doneEncryptReg: Bool = RegInit(false.B)
+  private val doneEncryptReg: Bool  = RegInit(false.B)
 
   private val startDecryptReg: Bool = RegInit(false.B)
-  private val doneDecryptReg: Bool = RegInit(false.B)
+  private val doneDecryptReg: Bool  = RegInit(false.B)
 
   // Encryption control
   when(io.startEncrypt) {

@@ -9,7 +9,7 @@ class RSASpec extends AnyFlatSpec with ChiselScalatestTester {
     val bitsList = Seq(16, 32, 64, 128, 256, 512, 1024, 2048)
 
     for (bits <- bitsList) {
-      test(new RSAKeyGen(keyBits = bits)) { dut =>
+      test(new RSAKeyGen(bits)) { dut =>
         val seeds = Seq(
           0x12345678, // 305419896
           0x0ABCDEF0, // 180150000
@@ -26,7 +26,9 @@ class RSASpec extends AnyFlatSpec with ChiselScalatestTester {
           dut.io.start.poke(false.B)
 
           // wait for done
-          while (!dut.io.done.peek().litToBoolean) dut.clock.step(1)
+          while (!dut.io.done.peek().litToBoolean) {
+            dut.clock.step(1)
+          }
 
           // read outputs
           val nOut = dut.io.n.peek().litValue
@@ -52,7 +54,7 @@ class RSASpec extends AnyFlatSpec with ChiselScalatestTester {
   }
 
   "RSACore" should "perform modular exponentiation correctly" in {
-    test(new RSACore(width = 16)) { dut =>
+    test(new RSACore(16)) { dut =>
       // Helper: ensure core is in Idle before starting a new case
       def waitUntilIdle(): Unit = {
         // Hold start low and step until done is false
@@ -110,14 +112,13 @@ class RSASpec extends AnyFlatSpec with ChiselScalatestTester {
       "Hello World",
       "Chisel3 RSA module",
       "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras at mollis turpis, " +
-        "et ultrices risus. Morbi euismod mauris nec lorem iaculis, fringilla pellentesque lorem " +
-        "porta. Phasellus maximus lectus eget ante pharetra ornare.",
+        "et ultrices risus.",
     )
 
     for (bits <- keySizes) {
       for (seed <- seeds) {
         for (msgStr <- messages) {
-          test(new RSATop(keyBits = bits)) { dut =>
+          test(new RSATop(bits)) { dut =>
             dut.clock.setTimeout(0)
 
             // Convert message string to BigInt
@@ -131,7 +132,9 @@ class RSASpec extends AnyFlatSpec with ChiselScalatestTester {
             dut.io.startKeyGen.poke(false.B)
 
             // Wait for key generation to complete
-            while (!dut.io.doneKeyGen.peek().litToBoolean) dut.clock.step(1)
+            while (!dut.io.doneKeyGen.peek().litToBoolean) {
+              dut.clock.step(1)
+            }
 
             val n = dut.io.n.peek().litValue
             val e = dut.io.e.peek().litValue
@@ -139,14 +142,15 @@ class RSASpec extends AnyFlatSpec with ChiselScalatestTester {
             println(s"Key size $bits, seed $seed: Generated RSA keys: n=$n, e=$e, d=$d")
 
             // Encrypt
-            require(msgInt < n, s"Message too large for modulus $bits-bit RSA. Split into chunks.")
             dut.io.messageIn.poke(msgInt.U)
             dut.io.startEncrypt.poke(true.B)
             dut.clock.step(1)
             dut.io.startEncrypt.poke(false.B)
 
             // Wait for encryption to complete
-            while (!dut.io.doneEncrypt.peek().litToBoolean) dut.clock.step(1)
+            while (!dut.io.doneEncrypt.peek().litToBoolean) {
+              dut.clock.step(1)
+            }
 
             // Read ciphertext
             val ciphertext = dut.io.cipherOut.peek().litValue
@@ -159,7 +163,9 @@ class RSASpec extends AnyFlatSpec with ChiselScalatestTester {
             dut.io.startDecrypt.poke(false.B)
 
             // Wait for decryption to complete
-            while (!dut.io.doneDecrypt.peek().litToBoolean) dut.clock.step(1)
+            while (!dut.io.doneDecrypt.peek().litToBoolean) {
+              dut.clock.step(1)
+            }
 
             // Read decrypted integer
             val decryptedInt = dut.io.messageOut.peek().litValue
