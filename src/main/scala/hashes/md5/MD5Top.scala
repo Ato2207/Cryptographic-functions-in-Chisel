@@ -20,7 +20,7 @@ class MD5Top(val maxBytes: Int) extends Module {
   val blockIdx: UInt            = RegInit(0.U(8.W))
   private val totalBlocks: UInt = RegInit(0.U(8.W))
 
-  // MD5 initial chaining values
+  // MD5 initialization vector
   private val IV = Seq(
     "h67452301".U(32.W),
     "hefcdab89".U(32.W),
@@ -57,7 +57,7 @@ class MD5Top(val maxBytes: Int) extends Module {
     chainState  := VecInit(IV)
   }
 
-  // ---------------- Message assembly w/ padding ----------------
+  // ---------------- Message assembly with padding ----------------
   private val msgLenBits: UInt = (msgLenReg.zext << 3).asUInt
   val blockBase: UInt          = blockIdx * 64.U
 

@@ -69,7 +69,7 @@ class SHA1Top(val maxBytes: Int) extends Module {
     val memIdxBits = log2Ceil(maxBytes)
     val memIdx     = absIdx(memIdxBits - 1, 0)
 
-    // BIG-endian length bytes: most significant byte first
+    // Big-endian length bytes: most significant byte first
     val lenByteIdx = absIdx - lenFieldBeg     // 0..7
     val shift      = (7.U - lenByteIdx) * 8.U
     val lenByte    = (lenBits64 >> shift)(7,0)
@@ -91,7 +91,7 @@ class SHA1Top(val maxBytes: Int) extends Module {
     coreWords(w) := Cat(b0, b1, b2, b3) // big-endian word
   }
 
-  // ---------------- Drive core (same pulse style as MD5Top) ----------------
+  // ---------------- Drive core  ----------------
   private val issueStart = RegInit(false.B)
   core.io.start := issueStart
 

@@ -137,7 +137,6 @@ object DESConsts {
     )
   )
 
-  // === Helpers ===
-  /** Rotate-left by sh bits. */
+  // === Helper ===
   def rol(x: UInt, s: UInt): UInt = (x << s).asUInt | (x >> (32.U - s)).asUInt
 }

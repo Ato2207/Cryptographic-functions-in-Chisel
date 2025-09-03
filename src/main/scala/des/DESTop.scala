@@ -94,7 +94,7 @@ class DESTop(val maxBytes: Int) extends Module {
 
   // --- FSM
   object State extends ChiselEnum {
-    val idle, prep, run, loop, finish, done = Value
+    val idle, prep, loop, finish, done = Value
   }
   import State._
   val state: State.Type = RegInit(idle)
@@ -124,11 +124,7 @@ class DESTop(val maxBytes: Int) extends Module {
     }
 
     is(prep) {
-      state := run  // core start asserted this cycle
-    }
-
-    is(run)  {
-      state := loop // let core run
+      state := loop  // core start asserted this cycle
     }
 
     is(loop) {

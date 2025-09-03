@@ -59,7 +59,7 @@ class RSAKeyGen(val modulusBits: Int, val genSeed: Int = 0xC0FFEE) extends Modul
   private val newTReg: SInt = Reg(SInt((modulusBits + 1).W))
 
   // ------------------------
-  // Prime number generation (software helpers)
+  // Prime number generation
   // ------------------------
   private val rng = new Random(genSeed)
 
