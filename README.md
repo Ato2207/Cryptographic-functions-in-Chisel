@@ -25,12 +25,6 @@ All components are verified using [chiseltest](https://www.chisel-lang.org/chise
 - **SHA1**:
   - Tests compare output digests against standard reference values from RFC 3174.
 
-Run the tests with:
-
-```bash
-sbt test
-```
-
 ## Project Structure
 
 ```
@@ -48,12 +42,6 @@ src/
       ├─ md5/        # MD5Spec
       └─ sha1/       # SHA1Spec
 ```
-
-## Requirements
-
-- [sbt](https://www.scala-sbt.org/)  
-- Scala 2.13+  
-- Chisel 3.x  
 
 ## License
 
